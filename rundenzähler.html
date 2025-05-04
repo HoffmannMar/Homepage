@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rundenzähler</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  
+  <style>
+    .bg-red-light { background-color: #ff340050; }
+    .bg-yellow-light { background-color: #ffff0050; }
+    .bg-green-light { background-color: #11ff1150; }
+    .bg-neutral-light { background-color: #cccccc50; }
+
+    .button-male { background-color: #007BFF; color: white; }
+    .button-female { background-color: #ff7BFF; color: black; }
+
+    .timer-display {
+      font-size: 3rem;
+      text-align: center;
+      margin: 1rem 0;
+      cursor: pointer; 
+    }
+
+    .participant-row {
+      display: flex;
+      flex-wrap: nowrap;
+      align-items: center;
+      gap: 0.5rem;
+      border: 1px solid #ccc;
+      border-radius: 0.3rem;
+      padding: 0.5rem;
+      margin-bottom: 0.4rem;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .participant-row::-webkit-scrollbar {
+      height: 4px;
+    }
+
+    .participant-row::-webkit-scrollbar-thumb {
+      background: #888; 
+      border-radius: 2px;
+    }
+
+    #bigTimerOverlay {
+      display: none; 
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.8);
+      z-index: 9999;
+      color: #fff;
+      text-align: center;
+    }
+    #bigTimerOverlayContent {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+    }
+    #bigTimerDisplay {
+      font-size: 10rem;  
+      margin-bottom: 1rem;
+    }
+
+    #results { display: none; margin-top: 1rem; }
+    .drag-over { outline: 2px dashed #333; }
+    footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #ddd; }
+
+    /* Bewertungstabellen Overlay */
+    .bewertung-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.8);
+      z-index: 10000;
+      overflow-y: auto;
+      padding: 20px;
+    }
+
+    .bewertung-content {
+      background-color: white;
+      padding: 20px;
+      border-radius: 5px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .bewertung-table {
+      width: 100%;
+      margin-bottom: 20px;
+    }
+
+    .bewertung-table th {
+      background-color: #f8f9fa;
+      text-align: center;
+    }
+
+    .bewertung-table td, .bewertung-table th {
+      padding: 8px;
+      border: 1px solid #dee2e6;
+    }
+
+    .table-container {
+      overflow-x: auto;
+    }
+
+    @media (max-width: 768px) {
+      .participant-row {
+        gap: 0.3rem;
+        padding: 0.3rem;
+      }
+      .participant-row button, .participant-row input {
+        font-size: 0.8rem;
+        padding: 0.25rem 0.4rem;
+        min-width: auto;
+      }
+      .participant-row input[type="number"] { width: 60px !important; }
+      .participant-row input[type="text"] { min-width: 70px !important; }
+      .timer-display { font-size: 2rem; }
+      
+      .bewertung-content {
+        padding: 10px;
+        max-width: 95%;
+      }
+    }
+  </style>
+</head>
+<body class="bg-light">
+
+<div class="container my-3">
+  <h1 class="mb-3">Rundenzähler</h1>
+
+  <div id="bigTimerOverlay">
+    <div id="bigTimerOverlayContent">
+      <div id="bigTimerDisplay">00:00</div>
+      <button class="btn btn-light" onclick="toggleBigTimerOverlay()">Schließen</button>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <!-- Einstellungen und Timer -->
+    <div class="col-12 col-md-6">
+      <div class="card">
+        <div class="card-body">
+          <h2 class="h4">Einstellungen</h2>
+          <div class="mb-3">
+            <select id="runTypeSelect" class="form-select" onchange="updateRunType()">
+              <option value="time">Zeitlauf</option>
+              <option value="distance">Distanzlauf</option>
+            </select>
+          </div>
+
+          <div id="timeInputContainer" class="mb-3">
+            <label for="InputT" class="form-label">Timer (min):</label>
+            <input type="number" id="InputT" class="form-control" value="30" min="1">
+          </div>
+
+          <div class="mb-3">
+            <label for="InputS" class="form-label">Strecke pro Runde (in Meter):</label>
+            <input type="number" id="InputS" class="form-control" value="450">
+          </div>
+
+          <h2 class="h4">Zeit</h2>
+          <div class="timer-display border border-secondary rounded" id="countdownDisplay" onclick="toggleBigTimerOverlay()">
+            30:00
+          </div>
+          <div>
+            <button id="startButton" class="btn btn-primary me-2" onclick="startChrono()">Start</button>
+            <button class="btn btn-secondary" onclick="resetChrono()">Zurücksetzen</button>
+            <button class="btn btn-info" onclick="showBewertungstabellen()">
+              <i class="bi bi-table"></i> Bewertungstabellen
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Teilnehmer-Bereich -->
+    <div class="col-12 col-md-6">
+      <div class="card overflow-auto" style="max-height: 70vh;">
+        <div class="card-body">
+          <h2 class="h4">Teilnehmer</h2>
+
+          <div class="mb-3">
+            <input type="file" id="csvInput" accept=".csv" style="display:none;" onchange="handleCSVUpload(event)">
+            
+            <div class="d-flex flex-wrap gap-2 mb-2">
+              <!-- Primäre Aktionen -->
+              <div class="d-flex flex-wrap gap-2">
+                <button class="btn btn-primary" onclick="document.getElementById('csvInput').click()">
+                  <i class="bi bi-upload"></i> Teilnehmer über CSV-Datei hinzufügen
+                </button>
+              </div>
+              
+              <small class="text-muted d-block">
+                Format pro Zeile: "Name, Geschlecht (m/w), Farbe (n/g/r/y) Beispiel: Max Mustermann, w, y"
+              </small>
+            </div>
+
+            <div class="d-flex flex-wrap mb-3 gap-2">
+              <button class="btn btn-secondary" onclick="addParticipant('neutral')">+ neutral</button>
+              <button class="btn" style="background-color: #ff3400; color: white;" onclick="addParticipant('red')">+ rot</button>
+              <button class="btn" style="background-color: #ffff00;" onclick="addParticipant('yellow')">+ gelb</button>
+              <button class="btn" style="background-color: #11ff11;" onclick="addParticipant('green')">+ grün</button>
+            </div>
+            
+            <!-- Teilnehmerliste -->
+            <div id="participants" class="d-flex flex-column mb-3"></div>
+            
+            <!-- Aktionen unter der Teilnehmerliste -->
+            <div class="d-flex flex-wrap gap-2">
+              <button class="btn btn-success" onclick="downloadExcel()">
+                <i class="bi bi-file-earmark-excel"></i> Excel-Download
+              </button>
+              <button class="btn btn-warning" onclick="downloadCSV()">
+                <i class="bi bi-file-earmark-text"></i> CSV-Download
+              </button>
+              <button class="btn btn-info" onclick="toggleResults()">
+                <i class="bi bi-eye"></i> Ergebnisse anzeigen
+              </button>
+              <button class="btn btn-danger" onclick="deleteAllData()">
+                <i class="bi bi-trash"></i> Alles zurücksetzen
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ergebnisse-Bereich -->
+    <div id="results" class="card mt-3">
+      <div class="card-body">
+        <h2 class="h4">Ergebnisse</h2>
+        <table class="table table-sm">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Zeit</th>
+              <th>Distanz (in Meter)</th>
+              <th id="th30min" style="display:none;">Note 11er (Punkte J1/J2)</th>
+              <th id="thDSA" style="display:none;">DSA (800m/3000m)</th>
+            </tr>
+          </thead>
+          <tbody id="resultsBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Fußbereich mit Links -->
+    <footer>
+      <h2 class="h4 mt-3">Links</h2>
+      <ul>
+        <li><a href="material/20240929T100905--laufstrecke-450m__w.jpg" target="_blank">Strecke: 450m</a></li>
+        <li><a href="material/20240929T164837--laufstrecke-500m__w.jpg" target="_blank">Strecke: 500m</a></li>
+        <li><a href="https://deutsches-sportabzeichen.de/materialien" target="_blank">DSA-Material</a></li>
+        <li><a href="https://cdn.dosb.de/Relaunch_2024/Sportabzeichen/Materialien_2025/DSA_Leistungsuebersicht_KiJu_A4_2025_web_SCREEN.pdf" target="_blank">DSA-Leistungskatalog-Jugendliche-2025</a></li>
+        <li><a href="https://cdn.dosb.de/Relaunch_2024/Sportabzeichen/Materialien_2025/DSA_Leistungsuebersicht_Erwachsene_A4_2025_web_SCREEN.pdf" target="_blank">DSA-Leistungskatalog-Erwachsene-2025</a></li>
+      </ul>
+    </footer>
+  </div>
+</div>
+
+<!-- Bewertungstabellen Overlay -->
+<div id="bewertungOverlay" class="bewertung-overlay">
+  <div class="bewertung-content">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h3>Bewertungstabellen</h3>
+      <button class="btn btn-danger btn-sm" onclick="hideBewertungstabellen()">
+        <i class="bi bi-x-lg"></i> Schließen
+      </button>
+    </div>
+    <div id="bewertungstabellenContent"></div>
+  </div>
+</div>
+
+<script>
+// Globale Variablen
+let participantsArray = [], runType = "time", timeLeft = 1800, timeElapsed = 0, timerRunning = false, timer, dragSrcIndex = null;
+
+// Integrierte Bewertungstabellen
+const bewertungstabellen = {
+  "30min": {
+    "m": [
+      { "distance": 6750, "grade": "1+", "points": 15 },
+      { "distance": 6300, "grade": "1+", "points": 14 },
+      { "distance": 6075, "grade": "1",  "points": 13 },
+      { "distance": 5850, "grade": "1-", "points": 12 },
+      { "distance": 5625, "grade": "2+", "points": 11 },
+      { "distance": 5400, "grade": "2",  "points": 10 },
+      { "distance": 5175, "grade": "2-", "points": 9  },
+      { "distance": 4950, "grade": "3+", "points": 8  },
+      { "distance": 4725, "grade": "3",  "points": 7  },
+      { "distance": 4500, "grade": "3-", "points": 6  },
+      { "distance": 4275, "grade": "4+", "points": 5  },
+      { "distance": 4050, "grade": "4",  "points": 4  },
+      { "distance": 3825, "grade": "4-", "points": 3  },
+      { "distance": 3600, "grade": "5+", "points": 2  },
+      { "distance": 3375, "grade": "5",  "points": 1  },
+      { "distance": 3150, "grade": "6+", "points": 0  },
+      { "distance": 2925, "grade": "6",  "points": 0  }
+    ],
+    "w": [
+      { "distance": 6300, "grade": "1+", "points": 15 },
+      { "distance": 5850, "grade": "1+", "points": 14 },
+      { "distance": 5625, "grade": "1",  "points": 13 },
+      { "distance": 5400, "grade": "1-", "points": 12 },
+      { "distance": 5175, "grade": "2+", "points": 11 },
+      { "distance": 4950, "grade": "2",  "points": 10 },
+      { "distance": 4725, "grade": "2-", "points": 9  },
+      { "distance": 4500, "grade": "3+", "points": 8  },
+      { "distance": 4275, "grade": "3",  "points": 7  },
+      { "distance": 4050, "grade": "3-", "points": 6  },
+      { "distance": 3825, "grade": "4+", "points": 5  },
+      { "distance": 3600, "grade": "4",  "points": 4  },
+      { "distance": 3375, "grade": "4-", "points": 3  },
+      { "distance": 3150, "grade": "5+", "points": 2  },
+      { "distance": 2925, "grade": "5",  "points": 1  },
+      { "distance": 2700, "grade": "5-", "points": 0  },
+      { "distance": 2475, "grade": "6+", "points": 0  },
+      { "distance": 2250, "grade": "6",  "points": 0  }
+    ]
+  },
+  "800m": {
+    "m": [
+      { "time": 165, "medal": "Gold" },
+      { "time": 205, "medal": "Silber" },
+      { "time": 245, "medal": "Bronze" }
+    ],
+    "w": [
+      { "time": 205, "medal": "Gold" },
+      { "time": 245, "medal": "Silber" },
+      { "time": 290, "medal": "Bronze" }
+    ]
+  },
+  "3000m": {
+    "m": [
+      { "time": 830, "medal": "Gold" },
+      { "time": 950, "medal": "Silber" },
+      { "time": 1070, "medal": "Bronze" }
+    ],
+    "w": [
+      { "time": 1010, "medal": "Gold" },
+      { "time": 1130, "medal": "Silber" },
+      { "time": 1250, "medal": "Bronze" }
+    ]
+  }
+};
+
+// Timer / Stoppuhr
+function updateDisplay(){
+  const disp = document.getElementById("countdownDisplay");
+  const bigDisp = document.getElementById("bigTimerDisplay");
+  let text;
+  if(runType === "time"){
+    const m = Math.floor(timeLeft/60);
+    const s = timeLeft%60;
+    text = `${m}:${s<10?'0':''}${s}`;
+  } else {
+    const m = Math.floor(timeElapsed/60);
+    const s = timeElapsed%60;
+    text = `${m}:${s<10?'0':''}${s}`;
+  }
+  disp.textContent = text;
+  if(bigDisp) bigDisp.textContent = text;
+}
+
+function startChrono(){
+  if(timerRunning) return;
+  if(runType === "time"){
+    if(timeLeft === undefined){
+      let v = parseInt(document.getElementById("InputT").value) || 30;
+      timeLeft = v*60;
+    }
+    timer = setInterval(() => {
+      if(timeLeft > 0){
+        timeLeft--;
+        updateDisplay();
+      } else {
+        clearInterval(timer);
+        timerRunning = false;
+      }
+    }, 1000);
+  } else {
+    timer = setInterval(() => {
+      timeElapsed++;
+      updateDisplay();
+    }, 1000);
+  }
+  timerRunning = true;
+  document.getElementById("startButton").textContent = "Pause";
+  document.getElementById("startButton").onclick = pauseChrono;
+}
+
+function pauseChrono(){
+  clearInterval(timer);
+  timerRunning = false;
+  document.getElementById("startButton").textContent = "Start";
+  document.getElementById("startButton").onclick = startChrono;
+}
+
+function resetChrono(){
+  clearInterval(timer);
+  timerRunning = false;
+  if(runType === "time"){
+    let v = parseInt(document.getElementById("InputT").value) || 30;
+    timeLeft = v*60;
+  } else {
+    timeElapsed = 0;
+  }
+  updateDisplay();
+  document.getElementById("startButton").textContent = "Start";
+  document.getElementById("startButton").onclick = startChrono;
+}
+
+// Overlay
+function toggleBigTimerOverlay(){
+  const ov = document.getElementById("bigTimerOverlay");
+  ov.style.display = (ov.style.display === "none" || ov.style.display === "") ? "block" : "none";
+  if(ov.style.display === "block") updateDisplay();
+}
+
+// Laufart
+function updateRunType(){
+  runType = document.getElementById("runTypeSelect").value;
+  resetChrono();
+  document.getElementById("timeInputContainer").style.display = runType === "time" ? "" : "none";
+  document.getElementById("InputS").value = runType === "time" ? "450" : "100";
+  saveToLocalStorage();
+  updateDisplay();
+}
+
+// CSV-Upload
+function handleCSVUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  const reader = new FileReader();
+  reader.onload = (e) => parseCSVText(e.target.result);
+  reader.readAsText(file, "UTF-8");
+}
+
+function parseCSVText(text) {
+  text.trim().split(/\r?\n/).forEach(line => {
+    if (!line.trim()) return;
+    const parts = line.split(",");
+    if (parts.length < 3) return;
+
+    const nameVal = parts[0].trim() || "Unbekannt";
+    const genderVal = parts[1].trim().toLowerCase() || "m";
+    let colorVal = parts[2].trim().toLowerCase() || "n";
+
+    if (colorVal === "r") colorVal = "red";
+    else if (colorVal === "g") colorVal = "green";
+    else if (colorVal === "y") colorVal = "yellow";
+    else colorVal = "neutral";
+
+    addParticipant(colorVal, nameVal, genderVal);
+  });
+}
+
+// Teilnehmer / Runden
+function generateUUID(){
+  return 'xxxx-xxx-4xxx-yxx'.replace(/[xy]/g, c => {
+    const r = Math.random()*16|0, v = (c === 'x') ? r : (r&0x3|0x8);
+    return v.toString(16);
+  });
+}
+
+function getBgClassFromColor(color){
+  switch(color){
+    case 'red': return 'bg-red-light';
+    case 'yellow': return 'bg-yellow-light';
+    case 'green': return 'bg-green-light';
+    default: return 'bg-neutral-light';
+  }
+}
+
+function addParticipant(color, name = null, gender = 'm'){
+  participantsArray.push({
+    uuid: generateUUID(),
+    color,
+    name: name || ("Teiln." + color),
+    gender,
+    rounds: 0,
+    laps: []
+  });
+  renderParticipants();
+  saveToLocalStorage();
+}
+
+function renderParticipants(){
+  const container = document.getElementById("participants");
+  container.innerHTML = "";
+  participantsArray.forEach((p, index) => {
+    container.appendChild(createParticipantRow(p, index));
+  });
+}
+
+function createParticipantRow(p, index){
+  const div = document.createElement("div");
+  div.className = `participant-row ${getBgClassFromColor(p.color)}`;
+  div.setAttribute("data-uuid", p.uuid);
+
+  div.draggable = true;
+  div.addEventListener("dragstart", e => onDragStart(e, index));
+  div.addEventListener("dragover", onDragOver);
+  div.addEventListener("drop", e => onDrop(e, index));
+  div.addEventListener("dragend", onDragEnd);
+
+  const btnDel = document.createElement("button");
+  btnDel.className = "btn btn-danger btn-sm";
+  btnDel.textContent = "x";
+  btnDel.onclick = () => deletePerson(p.uuid);
+
+  const inpName = document.createElement("input");
+  inpName.type = "text";
+  inpName.className = "form-control form-control-sm";
+  inpName.style.minWidth = "80px";
+  inpName.value = p.name;
+  inpName.onchange = e => updateName(p.uuid, e.target.value);
+
+  const genderBtn = document.createElement("button");
+  genderBtn.className = `btn btn-sm mx-1 ${p.gender === 'm' ? 'button-male' : 'button-female'}`;
+  genderBtn.textContent = p.gender === 'm' ? "♂" : "♀";
+  genderBtn.onclick = () => switchGender(p.uuid);
+
+  const roundInp = document.createElement("input");
+  roundInp.type = "number";
+  roundInp.className = "form-control form-control-sm";
+  roundInp.style.width = "70px";
+  roundInp.step = "0.5";
+  roundInp.min = "0";
+  roundInp.value = p.rounds.toFixed(1);
+  roundInp.onchange = e => setRoundsManually(p.uuid, parseFloat(e.target.value) || 0);
+
+  const addBtn = document.createElement("button");
+  addBtn.className = `btn btn-sm ms-1 ${p.gender === 'm' ? 'button-male' : 'button-female'}`;
+  addBtn.textContent = "+1";
+  addBtn.onclick = () => adjustRounds(p.uuid, 1);
+
+  div.append(btnDel, inpName, genderBtn, roundInp, addBtn);
+  return div;
+}
+
+function setRoundsManually(uuid, newValue) {
+  const p = participantsArray.find(x => x.uuid === uuid);
+  if (!p) return;
+  
+  const difference = newValue - p.rounds;
+  if (difference !== 0) {
+    // Aktuelle Zeit des Teilnehmers
+    const nowVal = runType === "time" 
+      ? (parseInt(document.getElementById("InputT").value) || 30) * 60 - timeLeft 
+      : timeElapsed;
+    
+    p.rounds = Math.max(0, newValue);
+    const distVal = parseFloat(document.getElementById("InputS").value) || 0;
+    const totalDist = p.rounds * distVal;
+    
+    let lastT = p.laps.length ? p.laps[p.laps.length-1].timeElapsed : 0;
+    
+    p.laps.push({
+      index: p.laps.length + 1,
+      timeElapsed: nowVal,
+      lapTime: nowVal - lastT,
+      distance: totalDist
+    });
+    
+    saveToLocalStorage();
+  }
+}
+
+// Drag & Drop
+function onDragStart(e, index){ dragSrcIndex = index; e.dataTransfer.effectAllowed = "move"; }
+function onDragOver(e){ e.preventDefault(); e.currentTarget.classList.add("drag-over"); }
+function onDrop(e, dropIndex){
+  e.preventDefault();
+  if(dragSrcIndex !== null && dragSrcIndex !== dropIndex){
+    const moved = participantsArray.splice(dragSrcIndex, 1)[0];
+    participantsArray.splice(dropIndex, 0, moved);
+    renderParticipants();
+    saveToLocalStorage();
+  }
+}
+function onDragEnd(e){
+  document.querySelectorAll(".participant-row").forEach(r => r.classList.remove("drag-over"));
+  dragSrcIndex = null;
+}
+
+function deletePerson(uuid){
+  participantsArray = participantsArray.filter(x => x.uuid !== uuid);
+  renderParticipants();
+  saveToLocalStorage();
+}
+
+function updateName(uuid, newVal){
+  const p = participantsArray.find(x => x.uuid === uuid);
+  if(p) p.name = newVal;
+  saveToLocalStorage();
+}
+
+function switchGender(uuid){
+  const p = participantsArray.find(x => x.uuid === uuid);
+  if(!p) return;
+  p.gender = p.gender === 'm' ? 'w' : 'm';
+  renderParticipants();
+  saveToLocalStorage();
+}
+
+// Runden / Laps
+function adjustRounds(uuid, amt){
+  const p = participantsArray.find(x => x.uuid === uuid);
+  if (!p) return;
+  
+  // Aktuelle Zeit des Teilnehmers (entweder seit Start oder verbleibende Zeit)
+  const nowVal = runType === "time" 
+    ? (parseInt(document.getElementById("InputT").value) || 30) * 60 - timeLeft 
+    : timeElapsed;
+  
+  p.rounds = Math.max(0, p.rounds + amt);
+  const distVal = parseFloat(document.getElementById("InputS").value) || 0;
+  const totalDist = p.rounds * distVal;
+  
+  let lastT = p.laps.length ? p.laps[p.laps.length-1].timeElapsed : 0;
+  
+  p.laps.push({
+    index: p.laps.length + 1,
+    timeElapsed: nowVal,
+    lapTime: nowVal - lastT,
+    distance: totalDist
+  });
+  
+  saveToLocalStorage();
+  renderParticipantRoundsOnly(uuid);
+}
+
+function renderParticipantRoundsOnly(uuid){
+  const div = document.querySelector(`[data-uuid="${uuid}"]`);
+  if(!div) return;
+  const p = participantsArray.find(x => x.uuid === uuid);
+  if(!p) return;
+  const inp = div.querySelector('input[type="number"]');
+  if(inp) inp.value = p.rounds.toFixed(1);
+}
+
+// Bewertungsfunktionen
+function getGradeAndPoints(distance, gender) {
+  const table = bewertungstabellen["30min"]?.[gender] || [];
+  for(const e of table) {
+    if(distance >= e.distance) return { grade: e.grade, points: e.points };
+  }
+  return { grade:"N/A", points:0 };
+}
+
+function getDSA800(timeSec, gender) {
+  const table = bewertungstabellen["800m"]?.[gender] || [];
+  for(const e of table) {
+    if(timeSec <= e.time) return e.medal;
+  }
+  return "-";
+}
+
+function getDSA3000(timeSec, gender) {
+  const table = bewertungstabellen["3000m"]?.[gender] || [];
+  for(const e of table) {
+    if(timeSec <= e.time) return e.medal;
+  }
+  return "-";
+}
+
+// Bewertungstabellen Overlay
+function showBewertungstabellen() {
+  const overlay = document.getElementById('bewertungOverlay');
+  const content = document.getElementById('bewertungstabellenContent');
+  
+  // Tabellen generieren
+  let html = '';
+  
+  // 30min-Tabelle
+  html += '<h4 class="mt-4">30-Minuten-Lauf</h4>';
+  html += '<div class="table-container">';
+  html += '<table class="table table-sm table-bordered bewertung-table">';
+  html += '<thead><tr><th>Geschlecht</th><th>Distanz (m)</th><th>Note</th><th>Punkte</th></tr></thead>';
+  html += '<tbody>';
+  
+  ['m', 'w'].forEach(gender => {
+    const entries = bewertungstabellen['30min']?.[gender] || [];
+    let lastGrade = null;
+    let lastPoints = null;
+    let rowspan = 1;
+    
+    // Zuerst rowspan berechnen
+    for (let i = 0; i < entries.length; i++) {
+      if (i > 0 && entries[i].grade === entries[i-1].grade && entries[i].points === entries[i-1].points) {
+        continue;
+      }
+      
+      rowspan = 1;
+      for (let j = i + 1; j < entries.length; j++) {
+        if (entries[j].grade === entries[i].grade && entries[j].points === entries[i].points) {
+          rowspan++;
+        } else {
+          break;
+        }
+      }
+      
+      html += `<tr>
+        <td rowspan="${rowspan}">${gender === 'm' ? 'Männlich' : 'Weiblich'}</td>
+        <td>≥ ${entries[i].distance}</td>
+        <td>${entries[i].grade}</td>
+        <td>${entries[i].points}</td>
+      </tr>`;
+    }
+  });
+  
+  html += '</tbody></table></div>';
+  
+  // 800m-Tabelle
+  html += '<h4 class="mt-4">800m-Lauf</h4>';
+  html += '<div class="table-container">';
+  html += '<table class="table table-sm table-bordered bewertung-table">';
+  html += '<thead><tr><th>Geschlecht</th><th>Zeit (s)</th><th>Abzeichen</th></tr></thead>';
+  html += '<tbody>';
+  
+  ['m', 'w'].forEach(gender => {
+    const entries = bewertungstabellen['800m']?.[gender] || [];
+    entries.forEach((entry, index) => {
+      const timeText = index === 0 ? `≤ ${entry.time}` : `≤ ${entry.time}`;
+      html += `<tr>
+        <td>${gender === 'm' ? 'Männlich' : 'Weiblich'}</td>
+        <td>${timeText}</td>
+        <td>${entry.medal}</td>
+      </tr>`;
+    });
+  });
+  
+  html += '</tbody></table></div>';
+  
+  // 3000m-Tabelle
+  html += '<h4 class="mt-4">3000m-Lauf</h4>';
+  html += '<div class="table-container">';
+  html += '<table class="table table-sm table-bordered bewertung-table">';
+  html += '<thead><tr><th>Geschlecht</th><th>Zeit (s)</th><th>Abzeichen</th></tr></thead>';
+  html += '<tbody>';
+  
+  ['m', 'w'].forEach(gender => {
+    const entries = bewertungstabellen['3000m']?.[gender] || [];
+    entries.forEach((entry, index) => {
+      const timeText = index === 0 ? `≤ ${entry.time}` : `≤ ${entry.time}`;
+      html += `<tr>
+        <td>${gender === 'm' ? 'Männlich' : 'Weiblich'}</td>
+        <td>${timeText}</td>
+        <td>${entry.medal}</td>
+      </tr>`;
+    });
+  });
+  
+  html += '</tbody></table></div>';
+  
+  content.innerHTML = html;
+  overlay.style.display = 'block';
+}
+
+function hideBewertungstabellen() {
+  document.getElementById('bewertungOverlay').style.display = 'none';
+}
+
+// Ergebnisse
+function toggleResults(){
+  const r = document.getElementById("results");
+  r.style.display = (r.style.display === "none" || r.style.display === "") ? "block" : "none";
+  if(r.style.display === "block") renderResults();
+}
+
+function renderResults(){
+   const body = document.getElementById("resultsBody");
+   body.innerHTML = "";
+   const th30 = document.getElementById("th30min");
+   const thDSA = document.getElementById("thDSA");
+   th30.style.display = "none"; // Reset display
+   thDSA.style.display = "none"; // Reset display
+
+   // Get the configured time for time runs ONLY ONCE
+   const configuredTimeSec = runType === "time" ?
+       (parseInt(document.getElementById("InputT").value) || 30) * 60 :
+       0; // Not relevant for distance runs here
+
+   participantsArray.forEach(p => {
+     const tr = document.createElement("tr");
+     const laps = p.laps;
+     const lastLap = laps.length > 0 ? laps[laps.length - 1] : null;
+
+     // Determine the relevant time and distance FOR THIS PARTICIPANT
+     let participantTimeSec = 0;
+     let participantDist = 0;
+
+     if (lastLap) {
+        participantDist = lastLap.distance; // Distance comes from the last recorded lap
+        // For distance runs, the participant's time is when their last lap was recorded
+        // For time runs, we still need the recorded time for potential intermediate display,
+        // but the "official" time column will show the full duration.
+        participantTimeSec = lastLap.timeElapsed;
+     }
+
+     // Determine the time to DISPLAY in the results table
+     let displayTimeSec = 0;
+     if (runType === "time") {
+       // For time runs, always display the configured total run time
+       displayTimeSec = configuredTimeSec;
+     } else {
+       // For distance runs, display the time when the participant finished (last lap time)
+       displayTimeSec = participantTimeSec;
+     }
+
+     const mm = Math.floor(displayTimeSec / 60);
+     const ss = Math.floor(displayTimeSec % 60);
+     const roundedDist = Math.round(participantDist); // Use rounded distance for DSA checks
+
+     // Basic participant info
+     tr.innerHTML = `
+       <td>${p.name}</td>
+       <td>${mm}:${ss < 10 ? '0' : ''}${ss}</td>
+       <td>${participantDist.toFixed(2)}</td>
+     `; // Display distance with 2 decimal places
+
+     // --- Conditional Columns based on Run Type ---
+
+     // 1. 30-Minute Run Grading (Note/Punkte)
+     if (runType === "time") {
+       let inputVal = parseInt(document.getElementById("InputT").value) || 30;
+       // Only show grading if it was actually a 30-minute run
+       if (inputVal === 30) {
+         th30.style.display = ""; // Show the header if relevant for any participant
+         const g = getGradeAndPoints(participantDist, p.gender); // Grade based on DISTANCE achieved
+         const gradeCell = document.createElement("td");
+         gradeCell.textContent = `${g.grade} (${g.points}P)`;
+         tr.appendChild(gradeCell);
+       } else {
+         // Add an empty cell if the header is shown but this run wasn't 30min
+         if (th30.style.display !== "none") {
+             tr.appendChild(document.createElement("td"));
+         }
+       }
+     } else {
+         // Add an empty cell if the 30min header is potentially visible from other run types
+          if (th30.style.display !== "none") {
+             tr.appendChild(document.createElement("td"));
+         }
+     }
+
+     // 2. DSA Grading (800m/3000m)
+     if (runType === "distance") {
+       thDSA.style.display = ""; // Show the header if relevant for any participant
+       let dsaRes = "-";
+       // Check rounded distance and evaluate based on PARTICIPANT'S TIME
+       if (roundedDist === 800) {
+         dsaRes = getDSA800(participantTimeSec, p.gender);
+       } else if (roundedDist === 3000) {
+         dsaRes = getDSA3000(participantTimeSec, p.gender);
+       }
+       const dsaCell = document.createElement("td");
+       dsaCell.textContent = dsaRes;
+       tr.appendChild(dsaCell);
+     } else {
+        // Add an empty cell if the DSA header is potentially visible
+        if (thDSA.style.display !== "none") {
+           tr.appendChild(document.createElement("td"));
+       }
+     }
+
+
+     body.appendChild(tr);
+   });
+
+   // Ensure headers without data are hidden if no participant met criteria
+   if (body.querySelectorAll("td:nth-child(4)").length === 0 || th30.style.display !== "") {
+       let hasData30 = false;
+       body.querySelectorAll("tr").forEach(row => {
+           if(row.cells.length > 3 && row.cells[3].textContent.trim() !== "" && row.cells[3].textContent.trim() !== "-") {
+               hasData30 = true;
+           }
+       });
+       if (!hasData30) th30.style.display = "none";
+   }
+    if (body.querySelectorAll("td:nth-child(5)").length === 0 || thDSA.style.display !== "") {
+        let hasDataDSA = false;
+        body.querySelectorAll("tr").forEach(row => {
+            const cellIndex = runType === 'time' && (parseInt(document.getElementById("InputT").value) || 30) === 30 ? 4 : 3; // Adjust index based on 30min column potentially existing
+            if(row.cells.length > cellIndex && row.cells[cellIndex].textContent.trim() !== "" && row.cells[cellIndex].textContent.trim() !== "-") {
+                hasDataDSA = true;
+            }
+        });
+       if (!hasDataDSA) thDSA.style.display = "none";
+   }
+
+
+ }
+// Excel-Export
+function downloadExcel() {
+  const workbook = XLSX.utils.book_new();
+  const wsData = [["Name", "Geschlecht", "Runden", "Distanz (m)", "Zeit (s)", "Note", "Punkte", "Lap Details"]];
+  
+  participantsArray.forEach(p => {
+    const lapDetails = p.laps.map(l => `Runde ${l.index}: ${l.distance.toFixed(2)}m (${l.lapTime}s)`).join("; ");
+    const totalDist = p.laps.length ? p.laps[p.laps.length-1].distance : 0;
+    const finalTime = p.laps.length ? p.laps[p.laps.length-1].timeElapsed : 0;
+    
+    let gradeInfo = { grade: "-", points: "-" };
+    if (runType === "time") {
+      const inputVal = parseInt(document.getElementById("InputT").value) || 30;
+      if (inputVal === 30) gradeInfo = getGradeAndPoints(totalDist, p.gender);
+    }
+    
+    wsData.push([
+      p.name,
+      p.gender === 'm' ? 'männlich' : 'weiblich',
+      p.rounds.toFixed(1),
+      totalDist.toFixed(2),
+      finalTime,
+      gradeInfo.grade,
+      gradeInfo.points,
+      lapDetails
+    ]);
+  });
+  
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(wsData), "Ergebnisse");
+  XLSX.writeFile(workbook, `lauf-ergebnisse-${new Date().toISOString().split("T")[0]}.xlsx`);
+}
+
+// CSV-Export
+function downloadCSV(){
+  let csv = "data:text/csv;charset=utf-8,Name,Geschlecht,Runden,Distanz (m),Zeit (s),Note,Punkte\n";
+  
+  participantsArray.forEach(p => {
+    const totalDist = p.laps.length ? p.laps[p.laps.length-1].distance : 0;
+    const finalTime = p.laps.length ? p.laps[p.laps.length-1].timeElapsed : 0;
+    
+    let gradeInfo = { grade: "-", points: "-" };
+    if (runType === "time") {
+      const inputVal = parseInt(document.getElementById("InputT").value) || 30;
+      if (inputVal === 30) gradeInfo = getGradeAndPoints(totalDist, p.gender);
+    }
+    
+    csv += [
+      p.name,
+      p.gender === 'm' ? 'männlich' : 'weiblich',
+      p.rounds.toFixed(1),
+      totalDist.toFixed(2),
+      finalTime,
+      gradeInfo.grade,
+      gradeInfo.points
+    ].join(",") + "\n";
+  });
+  
+  const enc = encodeURI(csv);
+  const link = document.createElement("a");
+  link.setAttribute("href", enc);
+  link.setAttribute("download", `auswertung-lauf-${new Date().toISOString().split("T")[0]}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+// Lokale Speicherung
+function saveToLocalStorage(){
+  localStorage.setItem("rundenzaehlerData", JSON.stringify({
+    runType,
+    timeLeft,
+    timeElapsed,
+    timerRunning,
+    participantsArray
+  }));
+}
+
+function loadFromLocalStorage(){
+  const str = localStorage.getItem("rundenzaehlerData");
+  if(!str) return false;
+  const data = JSON.parse(str);
+  
+  runType = data.runType || "time";
+  timeLeft = data.timeLeft || 1800;
+  timeElapsed = data.timeElapsed || 0;
+  timerRunning = false;
+  participantsArray = data.participantsArray || [];
+
+  clearInterval(timer);
+  document.getElementById("runTypeSelect").value = runType;
+  document.getElementById("timeInputContainer").style.display = runType === "time" ? "" : "none";
+  document.getElementById("InputS").value = runType === "time" ? "450" : "100";
+  document.getElementById("startButton").textContent = "Start";
+  document.getElementById("startButton").onclick = startChrono;
+
+  renderParticipants();
+  updateDisplay();
+  return true;
+}
+
+// Alle Daten löschen
+function deleteAllData(){
+  if(!confirm("Wirklich alle Daten löschen?")) return;
+  
+  clearInterval(timer);
+  timerRunning = false;
+  localStorage.removeItem("rundenzaehlerData");
+  participantsArray = [];
+  runType = "time";
+  timeLeft = 1800;
+  timeElapsed = 0;
+
+  document.getElementById("runTypeSelect").value = "time";
+  document.getElementById("timeInputContainer").style.display = "";
+  document.getElementById("InputT").value = "30";
+  document.getElementById("InputS").value = "450";
+  document.getElementById("results").style.display = "none";
+  document.getElementById("countdownDisplay").textContent = "30:00";
+
+  renderParticipants();
+}
+
+// onload
+window.onload = () => {
+  if(!loadFromLocalStorage()) updateDisplay();
+};
+</script>
+</body>
+</html>
