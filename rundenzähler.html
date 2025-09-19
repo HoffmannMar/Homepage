@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rundenzähler</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="sport-styles.css">
+    <link rel="icon" type="image/png" href="ks-logo.png">
+    <link rel="apple-touch-icon" href="ks-logo.png">
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="bewertungstabellen-2026.js"></script>
+  </head>
+  <body class="bg-light">
+    <div class="container my-3">
+      <div class="d-flex align-items-center mb-3">
+        <img src="ks-logo.png" alt="Schullogo" style="height: 50px; margin-right: 15px;">
+        <h1 class="mb-0">Rundenzähler</h1>
+      </div>
+      
+      <div id="saveIndicator" class="save-indicator">
+        <i class="bi bi-check-circle"></i> Gespeichert
+      </div>
+
+      <div id="bigTimerOverlay">
+        <div id="bigTimerOverlayContent">
+          <div id="bigTimerDisplay">00:00</div>
+          <small style="opacity: 0.7;">Klicken zum Schließen</small>
+        </div>
+      </div>
+
+      <div class="row g-3">
+        <div class="col-12 col-md-6">
+          <div class="card">
+            <div class="card-body">
+              <div class="row">
+                <div class="col-md-7">
+                  <h2 class="h4">Einstellungen</h2>
+                  <div class="mb-3">
+                    <label for="runTypeSelect" class="form-label">Laufart:</label>
+                    <select id="runTypeSelect" class="form-select">
+                      <option value="30min">30min-Lauf</option>
+                      <option value="la_3000m">3000m-Lauf (Punkte)</option>
+                      <option value="swim_800_freistil">800m Schwimmen (Punkte)</option>
+                    </select>
+                  </div>
+                  <div id="timeInputContainer" class="mb-3">
+                    <label for="InputT" class="form-label">Timer (min):</label>
+                    <input type="number" id="InputT" class="form-control" value="30" min="1">
+                  </div>
+                  <div class="mb-3">
+                    <label for="InputS" class="form-label">Strecke pro Runde (in Meter):</label>
+                    <input type="number" id="InputS" class="form-control" value="450">
+                  </div>
+                </div>
+                <div class="col-md-5">
+                  <h2 class="h4">Bewertung</h2>
+                  <div class="mb-3">
+                    <label for="bonusSelect" class="form-label">Bonus (Punkte):</label>
+                    <select id="bonusSelect" class="form-select">
+                      <option value="0">Kein Bonus</option>
+                      <option value="0.5">+0.5 Punkte</option>
+                      <option value="1">+1.0 Punkte</option>
+                      <option value="1.5">+1.5 Punkte</option>
+                      <option value="2">+2.0 Punkte</option>
+                      <option value="2.5">+2.5 Punkte</option>
+                      <option value="3">+3.0 Punkte</option>
+                      <option value="3.5">+3.5 Punkte</option>
+                      <option value="4">+4.0 Punkte</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <h2 class="h4">Zeit</h2>
+              <div class="timer-display border border-secondary rounded" id="countdownDisplay">30:00</div>
+              <div>
+                <button id="startButton" class="btn btn-primary me-2">Start</button>
+                <button id="resetButton" class="btn btn-secondary btn-compact">Zurücksetzen</button>
+                <button id="showTableButton" class="btn btn-info btn-compact">
+                  <i class="bi bi-table"></i> Bewertungstabellen
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-md-6">
+          <div class="card overflow-auto" style="max-height: 70vh;">
+            <div class="card-body">
+              <h2 class="h4">Teilnehmer</h2>
+              <div class="row mb-3">
+                <div class="col-md-4">
+                  <label for="classNameInput" class="form-label"><strong>Name:</strong></label>
+                  <input type="text" id="classNameInput" class="form-control form-control-sm" placeholder="Wird beim Import automatisch gesetzt">
+                </div>
+                <div class="col-md-8">
+                  <label for="commentInput" class="form-label"><strong>Kommentar:</strong></label>
+                  <textarea id="commentInput" class="form-control form-control-sm" rows="2" placeholder="Besonderheiten für Export..."></textarea>
+                </div>
+              </div>
+              <div class="mb-3">
+                <input type="file" id="csvInput" accept=".csv" style="display:none;">
+                <div class="d-flex flex-wrap gap-1 mb-2">
+                  <button id="addParticipantButton" class="btn btn-primary btn-compact">+ Teilnehmer</button>
+                  <button id="showImportButton" class="btn btn-secondary btn-compact">
+                    <i class="bi bi-upload"></i> Import
+                  </button>
+                </div>
+                <div id="participants" class="d-flex flex-column mb-3"></div>
+                <div class="d-flex flex-wrap gap-1">
+                  <button id="downloadButton" class="btn btn-success btn-compact">
+                    <i class="bi bi-file-earmark-excel"></i> Download
+                  </button>
+                  <button id="resetAllButton" class="btn btn-danger btn-compact">
+                    <i class="bi bi-trash"></i> Reset
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+	<div id="results" class="card mt-3">
+	  <div class="card-body">
+	    <h2 class="h4">Ergebnisse</h2>
+	    <div class="table-responsive">
+	      <table class="table table-sm">
+		<thead>
+		  <tr>
+		    <th>Name</th>
+		    <th>Zeit</th>
+		    <th>Distanz (in Meter)</th>
+		    <th id="thPoints" style="display:none;">Punkte</th>
+		    <th id="thGrade" style="display:none;">Note</th>
+		    <th id="thSpeed" style="display:none;">Ø Geschw. (km/h)</th>
+		  </tr>
+		</thead>
+		<tbody id="resultsBody"></tbody>
+	      </table>
+	    </div>
+	  </div>
+	</div>
+      </div>
+      
+      <footer class="mt-5 py-3" style="background-color: #2c3e50; color: #ffffff;">
+	<div class="container-fluid">
+	  <div class="row">
+	    <div class="col-12">
+	      <div class="d-flex flex-column flex-md-row align-items-center justify-content-center" style="background-color: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px; border-left: 4px solid #3498db;">
+		<img src="ks-logo.png" alt="TS Logo" style="height: 55px;" class="mb-3 mb-md-0 me-md-4">
+		<div class="text-center text-md-start">
+		  <small style="color: #bdc3c7; line-height: 1.6;">
+		    <div class="mb-2">
+		      <a href="20250623T223159--laufstrecke-450m-aufbau__w.png" target="_blank" class="text-decoration-none me-3" style="color: #85c1e9;">Strecke 450m</a>
+		      <!-- <a href="../material/20240918T074544--30min-laufmusik__ts_w.mp4" target="_blank" class="text-decoration-none me-3" style="color: #85c1e9;">Laufmusik</a> -->
+		      <!-- <a href="../material/20240918T074054--30min-laufmusik-180-bpm__ts_w.mp4" target="_blank" class="text-decoration-none me-3" style="color: #85c1e9;">Laufmusik 180bpm</a> -->
+		    </div>
+		    <div>
+		      <a href="https://assets01.sdd1.ch/assets/lbwp-cdn/mobilesport/files/1725972419/levellauf_deutsch.mp3" target="_blank" class="text-decoration-none me-3" style="color: #85c1e9;">20-Meter-Shuttle-Run-Test</a>
+		      <a href="https://km.baden-wuerttemberg.de/fileadmin/redaktion/m-km/intern/PDF/Dateien/Gymnasium/Dokumente_Abitur/Dokumente_Sportabitur/Sportabitur_2026/2024_04_22_SW_LA_Wertungstabelle_Abi_2026-bf.pdf" target="_blank" class="text-decoration-none" style="color: #85c1e9;">Bewertungstabellen</a>
+		    </div>
+		  </small>
+		</div>
+	      </div>
+	    </div>
+	  </div>
+	</div>
+      </footer>
+
+      <div id="importModal" class="overlay">
+        <div class="modal-content" style="max-width: 600px;">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3>Untis-Import</h3>
+            <button id="closeImportButton" class="btn btn-danger btn-sm">
+              <i class="bi bi-x-lg"></i> Schließen
+            </button>
+          </div>
+          <div id="importLoading" class="text-center" style="display: none;">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Laden...</span>
+            </div>
+            <p class="mt-2">CSV wird verarbeitet...</p>
+          </div>
+          <div id="importContent">
+            <div class="import-steps">
+              <div class="import-step">Öffnen Sie <strong>Untis</strong></div>
+              <div class="import-step">Gehen Sie zu <strong>Unterricht</strong></div>
+              <div class="import-step">Wählen Sie <strong>Mein Unterricht</strong></div>
+              <div class="import-step">Klicken Sie auf <strong>Berichte</strong></div>
+              <div class="import-step">Wählen Sie <strong>Schüler*innen im Unterricht</strong></div>
+              <div class="import-step">Downloaden Sie die <strong>CSV-Datei</strong></div>
+              <div class="import-step">
+                <strong>Laden Sie die Datei hier hoch:</strong><br>
+                <button id="uploadCsvButton" class="btn btn-success mt-2">
+                  <i class="bi bi-upload"></i> CSV-Datei hochladen
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="bewertungOverlay" class="bewertung-overlay">
+        <div class="bewertung-content">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3>Bewertungstabellen</h3>
+            <button id="closeBewertungButton" class="btn btn-danger btn-sm">
+              <i class="bi bi-x-lg"></i> Schließen
+            </button>
+          </div>
+          <div id="bewertungstabellenContent"></div>
+        </div>
+      </div>
+
+      <script>
+        // Constants
+        const COLORS = {
+          neutral: '#cccccc50', green: '#11ff1150', yellow: '#ffff0050', red: '#ff340050'
+        };
+        const COLOR_ORDER = ['neutral', 'green', 'yellow', 'red'];
+        const BUTTON_STYLES = { 
+          neutral: 'background-color: #6c757d; color: white;', 
+          green: 'background-color: #198754; color: white;', 
+          yellow: 'background-color: #ffc107; color: black;', 
+          red: 'background-color: #dc3545; color: white;' 
+        };
+        const RUN_DISTANCES = { '30min': 450, 'la_3000m': 100, 'swim_800_freistil': 25 };
+        const REQUIRED_DISTANCES = { 'la_3000m': 3000, 'swim_800_freistil': 800 };
+
+        // State
+        const state = {
+          participants: [], runType: "30min", timeLeft: 1800, timeElapsed: 0,
+          timerRunning: false, timer: null, dragSrcIndex: null, bonus: 0,
+          className: "", comment: ""
+        };
+
+        // Cached DOM elements
+        const el = {};
+        const elIds = [
+          'saveIndicator', 'bigTimerOverlay', 'bigTimerDisplay', 'countdownDisplay',
+          'startButton', 'resetButton', 'runTypeSelect', 'bonusSelect', 'InputT', 
+          'InputS', 'timeInputContainer', 'classNameInput', 'commentInput',
+          'participants', 'resultsBody', 'thPoints', 'thGrade', 'thSpeed',
+          'importModal', 'importLoading', 'importContent', 'csvInput',
+          'bewertungOverlay', 'bewertungstabellenContent'
+        ];
+
+        // Utility Functions
+        const uuid = () => 'xxxx-xxx-4xxx-yxx'.replace(/[xy]/g, c => {
+          const r = Math.random() * 16 | 0;
+          return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+        });
+
+        const formatTime = s => `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`;
+
+        const showSaveIndicator = () => {
+          el.saveIndicator.style.display = 'block';
+          setTimeout(() => el.saveIndicator.style.display = 'none', 1500);
+        };
+
+        const findParticipant = uuid => state.participants.find(p => p.uuid === uuid);
+
+        const convertPointsToGrade = points => {
+          const grades = [
+            [15,"1+"],[14.5,"1+"],[14,"1"],[13.5,"1"],[13,"1-"],[12.5,"1-2"],
+            [12,"2+"],[11.5,"2+"],[11,"2"],[10.5,"2"],[10,"2-"],[9.5,"2-3"],
+            [9,"3+"],[8.5,"3+"],[8,"3"],[7.5,"3"],[7,"3-"],[6.5,"3-4"],
+            [6,"4+"],[5.5,"4+"],[5,"4"],[4.5,"4"],[4,"4-"],[3.5,"4-5"],
+            [3,"5+"],[2.5,"5+"],[2,"5"],[1.5,"5-"],[1,"5-6"],[0.5,"6+"],[0,"6"]
+          ];
+          return grades.find(([p]) => points >= p)?.[1] || "6";
+        };
+
+        // Timer Functions
+        const updateDisplay = () => {
+          const text = state.runType === "30min" ? formatTime(state.timeLeft) : formatTime(state.timeElapsed);
+          [el.countdownDisplay, el.bigTimerDisplay].forEach(d => d && (d.textContent = text));
+        };
+
+        const updateTimerFromInput = () => {
+          if (state.runType === "30min") {
+            state.timeLeft = (parseInt(el.InputT.value) || 30) * 60;
+            updateDisplay();
+            saveState();
+          }
+        };
+
+        const startTimer = () => {
+          if (state.timerRunning) return;
+          
+          if (state.runType === "30min") {
+            if (state.timeLeft === 0) state.timeLeft = (parseInt(el.InputT.value) || 30) * 60;
+            state.timer = setInterval(() => {
+              if (state.timeLeft > 0) {
+                state.timeLeft--;
+                updateDisplay();
+              } else stopTimer();
+            }, 1000);
+          } else {
+            state.timer = setInterval(() => {
+              state.timeElapsed++;
+              updateDisplay();
+            }, 1000);
+          }
+          
+          state.timerRunning = true;
+          updateTimerButton();
+          saveState();
+        };
+
+        const pauseTimer = () => {
+          clearInterval(state.timer);
+          state.timerRunning = false;
+          updateTimerButton();
+          saveState();
+        };
+
+        const stopTimer = () => {
+          clearInterval(state.timer);
+          state.timerRunning = false;
+          updateTimerButton();
+          saveState();
+        };
+
+        const resetTimer = () => {
+          stopTimer();
+          if (state.runType === "30min") {
+            state.timeLeft = (parseInt(el.InputT.value) || 30) * 60;
+          } else {
+            state.timeElapsed = 0;
+          }
+          updateDisplay();
+        };
+
+        const updateTimerButton = () => {
+          el.startButton.textContent = state.timerRunning ? "Pause" : "Start";
+          el.startButton.onclick = state.timerRunning ? pauseTimer : startTimer;
+        };
+
+        // Run Type Functions
+        const updateRunType = () => {
+          state.runType = el.runTypeSelect.value;
+          resetTimer();
+          el.timeInputContainer.style.display = state.runType === "30min" ? "" : "none";
+          el.InputS.value = RUN_DISTANCES[state.runType];
+          
+          if (state.runType === "30min") {
+            state.timeLeft = (parseInt(el.InputT.value) || 30) * 60;
+            state.timeElapsed = 0;
+          } else {
+            state.timeLeft = 0;
+            state.timeElapsed = 0;
+          }
+          
+          updateDisplay();
+          saveState();
+          renderResults();
+        };
+
+        const updateBonus = () => {
+          state.bonus = parseFloat(el.bonusSelect.value) || 0;
+          saveState();
+          renderResults();
+        };
+
+        // Participant Functions
+        const addParticipant = (color = 'neutral', name = null, gender = 'm') => {
+          state.participants.push({
+            uuid: uuid(), color, name: name || `Teiln. ${state.participants.length + 1}`,
+            gender, rounds: 0, laps: []
+          });
+          renderParticipants();
+          renderResults();
+          saveState();
+          showSaveIndicator();
+        };
+
+        const deleteParticipant = uuid => {
+          if (state.timerRunning) {
+            const p = findParticipant(uuid);
+            if (!confirm(`Timer läuft! Wirklich "${p?.name || 'Teilnehmer'}" löschen?`)) return;
+          }
+          state.participants = state.participants.filter(p => p.uuid !== uuid);
+          renderParticipants();
+          saveState();
+          showSaveIndicator();
+        };
+
+        const updateParticipantName = (uuid, newName) => {
+          const p = findParticipant(uuid);
+          if (p) {
+            p.name = newName;
+            saveState();
+            showSaveIndicator();
+            renderResults();
+          }
+        };
+
+        const switchParticipantColor = uuid => {
+          const p = findParticipant(uuid);
+          if (p) {
+            const idx = COLOR_ORDER.indexOf(p.color);
+            p.color = COLOR_ORDER[(idx + 1) % COLOR_ORDER.length];
+            renderParticipants();
+            saveState();
+            showSaveIndicator();
+          }
+        };
+
+        const switchParticipantGender = uuid => {
+          const p = findParticipant(uuid);
+          if (p) {
+            p.gender = p.gender === 'm' ? 'w' : 'm';
+            renderParticipants();
+            saveState();
+            showSaveIndicator();
+            renderResults();
+          }
+        };
+
+        const adjustRounds = (uuid, amount) => {
+          const p = findParticipant(uuid);
+          if (!p) return;
+          
+          const currentTime = state.runType === "30min" 
+            ? (parseInt(el.InputT.value) || 30) * 60 - state.timeLeft 
+            : state.timeElapsed;
+          
+          p.rounds = Math.max(0, p.rounds + amount);
+          const distance = p.rounds * (parseFloat(el.InputS.value) || 0);
+          const lastTime = p.laps.length > 0 ? p.laps[p.laps.length - 1].timeElapsed : 0;
+          
+          p.laps.push({
+            index: p.laps.length + 1, timeElapsed: currentTime,
+            lapTime: currentTime - lastTime, distance
+          });
+          
+          saveState();
+          showSaveIndicator();
+          updateParticipantRoundsDisplay(uuid);
+          renderResults();
+        };
+
+        const setRoundsManually = (uuid, newValue) => {
+          const p = findParticipant(uuid);
+          if (!p || newValue === p.rounds) return;
+          
+          const currentTime = state.runType === "30min" 
+            ? (parseInt(el.InputT.value) || 30) * 60 - state.timeLeft 
+            : state.timeElapsed;
+          
+          p.rounds = Math.max(0, newValue);
+          const distance = p.rounds * (parseFloat(el.InputS.value) || 0);
+          const lastTime = p.laps.length > 0 ? p.laps[p.laps.length - 1].timeElapsed : 0;
+          
+          p.laps.push({
+            index: p.laps.length + 1, timeElapsed: currentTime,
+            lapTime: currentTime - lastTime, distance
+          });
+          
+          saveState();
+          showSaveIndicator();
+          renderResults();
+        };
+
+        const updateParticipantRoundsDisplay = uuid => {
+          const row = document.querySelector(`[data-uuid="${uuid}"]`);
+          const p = findParticipant(uuid);
+          if (row && p) {
+            const input = row.querySelector('input[type="number"]');
+            if (input) input.value = p.rounds.toFixed(2);
+          }
+        };
+
+        // Render Functions
+        const renderParticipants = () => {
+          el.participants.innerHTML = "";
+          state.participants.forEach((p, i) => {
+            const div = document.createElement("div");
+            div.className = "participant-row";
+            div.style.backgroundColor = COLORS[p.color];
+            div.dataset.uuid = p.uuid;
+            div.draggable = true;
+            
+            const nextIdx = (COLOR_ORDER.indexOf(p.color) + 1) % COLOR_ORDER.length;
+            const nextColor = COLOR_ORDER[nextIdx];
+            
+            div.innerHTML = `
+              <button class="btn btn-danger btn-sm" data-action="delete">
+                <i class="bi bi-trash"></i>
+              </button>
+              <input type="text" class="form-control form-control-sm" style="min-width:80px" 
+                     value="${p.name}" data-action="name-change">
+              <button class="btn btn-sm mx-1 ${p.gender === 'm' ? 'button-male' : 'button-female'}" 
+                      data-action="switch-gender">${p.gender === 'm' ? '♂' : '♀'}</button>
+              <button class="btn btn-sm rounded-circle p-1" style="${BUTTON_STYLES[nextColor]}; width: 24px; height: 24px;" 
+                      data-action="switch-color" title="Wechseln zu: ${nextColor}"></button>
+              <input type="number" class="form-control form-control-sm" style="width:70px" 
+                     step="0.25" min="0" value="${p.rounds.toFixed(2)}" data-action="rounds-change">
+              <button class="btn btn-sm ms-1 ${p.gender === 'm' ? 'button-male' : 'button-female'}" 
+                      data-action="add-round">+1</button>
+            `;
+            
+            // Drag events
+            div.addEventListener("dragstart", e => {
+              state.dragSrcIndex = i;
+              e.dataTransfer.effectAllowed = "move";
+            });
+            div.addEventListener("dragover", e => {
+              e.preventDefault();
+              e.currentTarget.classList.add("drag-over");
+            });
+            div.addEventListener("drop", e => {
+              e.preventDefault();
+              e.currentTarget.classList.remove("drag-over");
+              if (state.dragSrcIndex !== null && state.dragSrcIndex !== i) {
+                const moved = state.participants.splice(state.dragSrcIndex, 1)[0];
+                state.participants.splice(i, 0, moved);
+                renderParticipants();
+                saveState();
+                showSaveIndicator();
+              }
+            });
+            div.addEventListener("dragend", () => {
+              document.querySelectorAll(".participant-row").forEach(r => r.classList.remove("drag-over"));
+              state.dragSrcIndex = null;
+            });
+            
+            el.participants.appendChild(div);
+          });
+        };
+
+        // Scoring Functions
+        const getBasePoints = (value, gender, runType) => {
+          if (typeof bewertungstabellen === 'undefined') return 0;
+          const table = bewertungstabellen[runType]?.[gender] || [];
+          
+          if (runType === "30min") {
+            for (const entry of table) {
+              if (value >= entry.performance) return entry.points;
+            }
+          } else {
+            for (const entry of table) {
+              if (value <= entry.performance) return entry.points;
+            }
+          }
+          return 0;
+        };
+
+        const calculateFinalResult = (basePoints, bonus) => {
+          const finalPoints = Math.min(15, Math.max(0, basePoints + bonus));
+          return { basePoints, finalPoints, grade: convertPointsToGrade(finalPoints) };
+        };
+
+        const renderResults = () => {
+          el.resultsBody.innerHTML = "";
+          [el.thPoints, el.thGrade, el.thSpeed].forEach(th => th.style.display = "none");
+          
+          const configTime = state.runType === "30min" ? (parseInt(el.InputT.value) || 30) * 60 : 0;
+          
+          state.participants.forEach(p => {
+            const row = document.createElement("tr");
+            const lastLap = p.laps[p.laps.length - 1];
+            const distance = lastLap?.distance || 0;
+            const time = lastLap?.timeElapsed || 0;
+            const displayTime = state.runType === "30min" ? configTime : time;
+            
+            row.innerHTML = `
+              <td>${p.name}</td>
+              <td>${formatTime(displayTime)}</td>
+              <td>${distance.toFixed(2)}</td>
+            `;
+            
+            if (state.runType === "30min" && (parseInt(el.InputT.value) || 30) === 30) {
+              el.thPoints.style.display = "";
+              el.thGrade.style.display = "";
+              el.thSpeed.style.display = "";
+              
+              const basePoints = getBasePoints(distance, p.gender, state.runType);
+              const effectiveBonus = basePoints > 0 ? state.bonus : 0;
+              const result = calculateFinalResult(basePoints, effectiveBonus);
+              const bonusHint = (effectiveBonus > 0 && basePoints > 0) ? ` (${basePoints}+${effectiveBonus})` : '';
+              
+              row.innerHTML += `
+                <td>${result.finalPoints.toFixed(1)} P${bonusHint}</td>
+                <td>${result.grade}</td>
+                <td>${((distance / 1000) / (30 / 60)).toFixed(2)} km/h</td>
+              `;
+            }
+            
+            if (state.runType === "la_3000m" || state.runType === "swim_800_freistil") {
+              el.thPoints.style.display = "";
+              el.thGrade.style.display = "";
+              
+              const reqDist = REQUIRED_DISTANCES[state.runType];
+              let pointsResult = "-", gradeResult = "-";
+              
+              if (distance >= reqDist) {
+                const basePoints = getBasePoints(time, p.gender, state.runType);
+                const effectiveBonus = basePoints > 0 ? state.bonus : 0;
+                const result = calculateFinalResult(basePoints, effectiveBonus);
+                const bonusHint = (effectiveBonus > 0 && basePoints > 0) ? ` (${basePoints}+${effectiveBonus})` : '';
+                pointsResult = `${result.finalPoints.toFixed(1)} P${bonusHint}`;
+                gradeResult = result.grade;
+              }
+              
+              row.innerHTML += `<td>${pointsResult}</td><td>${gradeResult}</td>`;
+            }
+            
+            el.resultsBody.appendChild(row);
+          });
+        };
+
+        // CSV Import Functions
+        const parseCSVText = text => {
+          const lines = text.trim().split(/\r?\n/);
+          if (lines.length < 2) {
+            alert("CSV-Datei enthält keine gültigen Daten.");
+            return;
+          }
+          
+          const headers = lines[0].split(/[,;\t]/).map(h => h.trim());
+          const findColumn = terms => terms.map(term => 
+            headers.findIndex(header => header.toLowerCase().includes(term.toLowerCase()))
+          ).find(index => index !== -1) ?? -1;
+          
+          const langnameIndex = findColumn(['langname', 'nachname', 'familienname']);
+          const vornameIndex = findColumn(['vorname', 'firstname']);
+          const klasseIndex = findColumn(['klasse', 'class']);
+          const geschlechtIndex = findColumn(['geschlecht', 'gender', 'sex']);
+          
+          if (langnameIndex === -1 || vornameIndex === -1) {
+            alert("CSV-Datei muss mindestens 'Langname' und 'Vorname' Spalten enthalten.");
+            return;
+          }
+          
+          if (lines.length > 1 && klasseIndex !== -1) {
+            const firstData = lines[1].split(/[,;\t]/);
+            if (firstData[klasseIndex]?.trim()) {
+              const currentDate = new Date().toLocaleDateString('de-DE');
+              state.className = `${firstData[klasseIndex].trim()} (${currentDate})`;
+              el.classNameInput.value = state.className;
+            }
+          }
+          
+          let importedCount = 0;
+          lines.slice(1).forEach(line => {
+            const parts = line.trim().split(/[,;\t]/);
+            if (parts.length < Math.max(langnameIndex, vornameIndex) + 1) return;
+            
+            const langname = parts[langnameIndex]?.trim() || "";
+            const vorname = parts[vornameIndex]?.trim() || "";
+            const geschlecht = parts[geschlechtIndex]?.trim().toLowerCase() || "";
+            
+            if (!langname && !vorname) return;
+            
+            const fullName = `${vorname} ${langname}`.trim();
+            const gender = (geschlecht.startsWith('w') || geschlecht.startsWith('f')) ? 'w' : 'm';
+            
+            addParticipant('neutral', fullName, gender);
+            importedCount++;
+          });
+          
+          if (importedCount > 0) {
+            showSaveIndicator();
+            setTimeout(() => alert(`${importedCount} Teilnehmer erfolgreich importiert.`), 100);
+          }
+        };
+
+        // Bewertungstabellen Functions
+        const showBewertungstabellen = () => {
+          if (typeof bewertungstabellen === 'undefined') {
+            el.bewertungstabellenContent.innerHTML = '<div class="alert alert-danger">Bewertungstabellen konnten nicht geladen werden.</div>';
+            el.bewertungOverlay.style.display = 'block';
+            return;
+          }
+          
+          const hasBonus = state.bonus > 0;
+          let html = `
+            <div class="mb-3">
+              <div class="btn-group" role="group">
+                <button type="button" class="btn btn-primary" id="showMale">♂ Männlich</button>
+                <button type="button" class="btn btn-outline-primary" id="showFemale">♀ Weiblich</button>
+              </div>
+            </div>
+          `;
+          
+          ['m', 'w'].forEach(gender => {
+            const genderName = gender === 'm' ? 'Männlich' : 'Weiblich';
+            const isVisible = gender === 'm';
+            
+            html += `<div id="table-${gender}" style="display: ${isVisible ? 'block' : 'none'};">`;
+            
+            if (state.runType === "30min") {
+              html += `<h4 class="mt-4">30-Minuten-Lauf (${genderName})</h4>`;
+            } else if (state.runType === "la_3000m") {
+              html += `<h4 class="mt-4">3000m-Lauf (${genderName})</h4>`;
+            } else if (state.runType === "swim_800_freistil") {
+              html += `<h4 class="mt-4">800m Schwimmen (${genderName})</h4>`;
+            }
+            
+            if (hasBonus) {
+              html += `<div class="alert alert-info mb-3">Basis-Bewertung mit +${state.bonus} Punkte Bonus (max. 15 Punkte)</div>`;
+            } else {
+              html += `<div class="alert alert-info mb-3">Basis-Bewertung ohne Bonus</div>`;
+            }
+            
+            html += '<div class="table-container" style="max-height: 500px; overflow-y: auto;">';
+            html += '<table class="table table-sm table-bordered bewertung-table">';
+            
+            if (state.runType === "30min") {
+              html += hasBonus 
+                ? '<thead style="position: sticky; top: 0; background-color: #f8f9fa;"><tr><th>Distanz (m)</th><th>Basis</th><th>Mit Bonus</th><th>Note</th><th>Geschw. (km/h)</th></tr></thead>'
+                : '<thead style="position: sticky; top: 0; background-color: #f8f9fa;"><tr><th>Distanz (m)</th><th>Basis</th><th>Note</th><th>Geschw. (km/h)</th></tr></thead>';
+            } else {
+              html += hasBonus 
+                ? '<thead style="position: sticky; top: 0; background-color: #f8f9fa;"><tr><th>Zeit (mm:ss)</th><th>Basis</th><th>Mit Bonus</th><th>Note</th></tr></thead>'
+                : '<thead style="position: sticky; top: 0; background-color: #f8f9fa;"><tr><th>Zeit (mm:ss)</th><th>Basis</th><th>Note</th></tr></thead>';
+            }
+            
+            html += '<tbody>';
+            
+            const tableData = bewertungstabellen[state.runType];
+            if (tableData && tableData[gender]) {
+              const entries = tableData[gender];
+              
+              if (hasBonus) {
+                for (let finalPoints = 15; finalPoints >= 0; finalPoints -= 0.5) {
+                  const basePoints = finalPoints - state.bonus;
+                  const entry = entries.find(e => e.points === basePoints);
+                  
+                  if (entry) {
+                    const grade = convertPointsToGrade(finalPoints);
+                    const rowStyle = [15, 10, 5, 0].includes(finalPoints) ? 'font-weight: bold;' : '';
+                    
+                    if (state.runType === "30min") {
+                      const speed = entry.performance > 0 ? (entry.performance / 1000) / (30 / 60) : 0;
+                      html += `<tr style="${rowStyle}">
+                        <td>≥ ${entry.performance}m</td>
+                        <td>${basePoints} P</td>
+                        <td>${finalPoints.toFixed(1)} P</td>
+                        <td><strong>${grade}</strong></td>
+                        <td>${speed.toFixed(2)} km/h</td>
+                      </tr>`;
+                    } else {
+                      html += `<tr style="${rowStyle}">
+                        <td>≤ ${formatTime(entry.performance)}</td>
+                        <td>${basePoints} P</td>
+                        <td>${finalPoints.toFixed(1)} P</td>
+                        <td><strong>${grade}</strong></td>
+                      </tr>`;
+                    }
+                  }
+                }
+              } else {
+                entries.forEach(entry => {
+                  if (entry.points >= 0) {
+                    const grade = convertPointsToGrade(entry.points);
+                    const rowStyle = [15, 10, 5, 0].includes(entry.points) ? 'font-weight: bold;' : '';
+                    
+                    if (state.runType === "30min") {
+                      const speed = entry.performance > 0 ? (entry.performance / 1000) / (30 / 60) : 0;
+                      html += `<tr style="${rowStyle}">
+                        <td>≥ ${entry.performance}m</td>
+                        <td>${entry.points} P</td>
+                        <td><strong>${grade}</strong></td>
+                        <td>${speed.toFixed(2)} km/h</td>
+                      </tr>`;
+                    } else {
+                      html += `<tr style="${rowStyle}">
+                        <td>≤ ${formatTime(entry.performance)}</td>
+                        <td>${entry.points} P</td>
+                        <td><strong>${grade}</strong></td>
+                      </tr>`;
+                    }
+                  }
+                });
+              }
+            } else {
+              html += '<tr><td colspan="5">Keine Daten verfügbar</td></tr>';
+            }
+            
+            html += '</tbody></table></div></div>';
+          });
+          
+          el.bewertungstabellenContent.innerHTML = html;
+          el.bewertungOverlay.style.display = 'block';
+          
+          setTimeout(() => {
+            const maleBtn = document.getElementById('showMale');
+            const femaleBtn = document.getElementById('showFemale');
+            const maleTable = document.getElementById('table-m');
+            const femaleTable = document.getElementById('table-w');
+            
+            if (maleBtn && femaleBtn && maleTable && femaleTable) {
+              maleBtn.onclick = () => {
+                maleTable.style.display = 'block';
+                femaleTable.style.display = 'none';
+                maleBtn.className = 'btn btn-primary';
+                femaleBtn.className = 'btn btn-outline-primary';
+              };
+              
+              femaleBtn.onclick = () => {
+                maleTable.style.display = 'none';
+                femaleTable.style.display = 'block';
+                maleBtn.className = 'btn btn-outline-primary';
+                femaleBtn.className = 'btn btn-primary';
+              };
+            }
+          }, 10);
+        };
+
+        // Excel Export
+        const downloadExcel = () => {
+          const workbook = XLSX.utils.book_new();
+          const wsData = [["Name", "Geschlecht", "Farbe", "Runden", "Distanz (m)", "Zeit (s)", "Basis-Punkte", "Final-Punkte", "Note", "Ø Geschw. (km/h)", "Lap Details"]];
+          
+          state.participants.forEach(p => {
+            const lapDetails = p.laps.map(lap => 
+              `Runde ${lap.index}: ${lap.distance.toFixed(2)}m (${lap.lapTime}s)`
+            ).join("; ");
+            
+            const totalDistance = p.laps.length ? p.laps[p.laps.length - 1].distance : 0;
+            const finalTime = p.laps.length ? p.laps[p.laps.length - 1].timeElapsed : 0;
+            
+            let basePoints = 0, finalPoints = 0, grade = "-", avgSpeed = "-";
+            
+            if (state.runType === "30min" && (parseInt(el.InputT.value) || 30) === 30) {
+              basePoints = getBasePoints(totalDistance, p.gender, state.runType);
+              const result = calculateFinalResult(basePoints, state.bonus);
+              finalPoints = result.finalPoints;
+              grade = result.grade;
+              avgSpeed = ((totalDistance / 1000) / (30 / 60)).toFixed(2);
+            } else if (state.runType === "la_3000m" || state.runType === "swim_800_freistil") {
+              const reqDist = REQUIRED_DISTANCES[state.runType];
+              if (totalDistance >= reqDist) {
+                basePoints = getBasePoints(finalTime, p.gender, state.runType);
+                const result = calculateFinalResult(basePoints, state.bonus);
+                finalPoints = result.finalPoints;
+                grade = result.grade;
+              }
+            }
+            
+            const colorNames = { neutral: 'Neutral', green: 'Grün', yellow: 'Gelb', red: 'Rot' };
+            
+            wsData.push([
+              p.name, p.gender === 'm' ? 'männlich' : 'weiblich',
+              colorNames[p.color] || 'Neutral', p.rounds.toFixed(2),
+              totalDistance.toFixed(2), finalTime, basePoints,
+              finalPoints.toFixed(1), grade, avgSpeed, lapDetails
+            ]);
+          });
+          
+          if (state.className.trim() || state.comment.trim() || state.bonus > 0) {
+            wsData.push([]);
+            if (state.className.trim()) wsData.push(["Klasse/Name:", state.className]);
+            if (state.comment.trim()) {
+              state.comment.split('\n').forEach((line, i) => {
+                wsData.push(i === 0 ? ["Kommentar:", line] : ["", line]);
+              });
+            }
+            wsData.push(["Laufart:", state.runType]);
+            wsData.push(["Bonus:", `+${state.bonus} Punkte (max. 15 Punkte)`]);
+            wsData.push(["Datum:", new Date().toLocaleDateString('de-DE')]);
+          }
+          
+          XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(wsData), "Ergebnisse");
+          
+          const today = new Date().toISOString().slice(0, 10);
+          let fileName = "Rundenzaehler";
+          
+          if (state.className.trim()) {
+            const cleanClassName = state.className.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_');
+            fileName = `${cleanClassName}_${fileName}`;
+          }
+          
+          fileName += `_${state.runType}`;
+          if (state.bonus > 0) fileName += `_Bonus${state.bonus}P`;
+          fileName += `_${today}`;
+          
+          XLSX.writeFile(workbook, `${fileName}.xlsx`);
+        };
+
+        // Storage Functions
+        const saveState = () => {
+          try {
+            const data = {
+              runType: state.runType, timeLeft: state.timeLeft, timeElapsed: state.timeElapsed,
+              participants: state.participants, bonus: state.bonus, className: state.className,
+              comment: state.comment, timerRunning: state.timerRunning, timestamp: Date.now()
+            };
+            localStorage.setItem("rundenzaehlerData", JSON.stringify(data));
+          } catch (error) {
+            console.error("Fehler beim Speichern:", error);
+          }
+        };
+
+        const loadState = () => {
+          const stored = localStorage.getItem("rundenzaehlerData");
+          if (!stored) return false;
+          
+          try {
+            const data = JSON.parse(stored);
+            Object.assign(state, {
+              runType: data.runType || "30min",
+              timeLeft: data.timeLeft || 1800,
+              timeElapsed: data.timeElapsed || 0,
+              participants: data.participants || [],
+              bonus: data.bonus || 0,
+              className: data.className || "",
+              comment: data.comment || "",
+              timerRunning: false,
+              timer: null
+            });
+            
+            const wasRunning = data.timerRunning || false;
+            el.runTypeSelect.value = state.runType;
+            el.bonusSelect.value = state.bonus.toString();
+            el.timeInputContainer.style.display = state.runType === "30min" ? "" : "none";
+            el.classNameInput.value = state.className;
+            el.commentInput.value = state.comment;
+            
+            renderParticipants();
+            if (wasRunning) setTimeout(startTimer, 100);
+            return true;
+          } catch (error) {
+            console.error("Fehler beim Laden:", error);
+            return false;
+          }
+        };
+
+        const resetAllData = () => {
+          if (!confirm("Wirklich alle Daten löschen?")) return;
+          
+          stopTimer();
+          localStorage.removeItem("rundenzaehlerData");
+          
+          Object.assign(state, {
+            participants: [], runType: "30min", timeLeft: 1800, timeElapsed: 0,
+            timerRunning: false, timer: null, bonus: 0, className: "", comment: ""
+          });
+
+          el.runTypeSelect.value = "30min";
+          el.bonusSelect.value = "0";
+          el.timeInputContainer.style.display = "";
+          el.InputT.value = "30";
+          el.InputS.value = "450";
+          el.classNameInput.value = "";
+          el.commentInput.value = "";
+
+          updateTimerButton();
+          renderParticipants();
+          updateDisplay();
+          renderResults();
+          showSaveIndicator();
+        };
+
+        // Event Handlers
+        const handleClick = e => {
+          const action = e.target.dataset.action || e.target.closest('[data-action]')?.dataset.action;
+          const uuid = e.target.closest('[data-uuid]')?.dataset.uuid;
+          
+          switch(action) {
+            case 'delete': deleteParticipant(uuid); break;
+            case 'switch-color': switchParticipantColor(uuid); break;
+            case 'switch-gender': switchParticipantGender(uuid); break;
+            case 'add-round': adjustRounds(uuid, 1); break;
+          }
+        };
+
+        const handleInput = e => {
+          const action = e.target.dataset.action;
+          const uuid = e.target.closest('[data-uuid]')?.dataset.uuid;
+          
+          if (action === 'name-change') updateParticipantName(uuid, e.target.value);
+          else if (action === 'rounds-change') setRoundsManually(uuid, parseFloat(e.target.value) || 0);
+          else if (e.target.id === 'classNameInput') {
+            state.className = e.target.value;
+            saveState();
+          } else if (e.target.id === 'commentInput') {
+            state.comment = e.target.value;
+            saveState();
+          }
+        };
+
+        const handleCSVUpload = e => {
+          const file = e.target.files[0];
+          if (!file) return;
+          
+          el.importLoading.style.display = 'block';
+          el.importContent.style.display = 'none';
+          
+          const reader = new FileReader();
+          reader.onload = evt => {
+            setTimeout(() => {
+              parseCSVText(evt.target.result);
+              el.importLoading.style.display = 'none';
+              el.importContent.style.display = 'block';
+              el.importModal.style.display = 'none';
+            }, 500);
+          };
+          reader.readAsText(file, "UTF-8");
+          e.target.value = '';
+        };
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+          // Cache DOM elements
+          elIds.forEach(id => el[id] = document.getElementById(id));
+          
+          // Load state
+          const loaded = loadState();
+          if (!loaded && !state.className.trim()) {
+            state.className = new Date().toLocaleDateString('de-DE');
+            el.classNameInput.value = state.className;
+            saveState();
+          }
+          
+          // Event listeners
+          document.addEventListener('click', e => {
+            const id = e.target.id;
+            if (id === 'resetButton') resetTimer();
+            else if (id === 'showTableButton') showBewertungstabellen();
+            else if (id === 'showImportButton') el.importModal.style.display = 'block';
+            else if (id === 'addParticipantButton') addParticipant();
+            else if (id === 'downloadButton') downloadExcel();
+            else if (id === 'resetAllButton') resetAllData();
+            else if (id === 'closeImportButton') el.importModal.style.display = 'none';
+            else if (id === 'uploadCsvButton') el.csvInput.click();
+            else if (id === 'closeBewertungButton') el.bewertungOverlay.style.display = 'none';
+            else if (id === 'countdownDisplay') {
+              const overlay = el.bigTimerOverlay;
+              overlay.style.display = "block";
+              updateDisplay();
+            }
+            else if (id === 'bigTimerOverlay') {
+              el.bigTimerOverlay.style.display = "none";
+            }
+            else handleClick(e);
+          });
+          
+          document.addEventListener('input', handleInput);
+          document.addEventListener('change', e => {
+            if (e.target.id === 'InputT') updateTimerFromInput();
+            else if (e.target.id === 'runTypeSelect') updateRunType();
+            else if (e.target.id === 'bonusSelect') updateBonus();
+            else if (e.target.id === 'csvInput') handleCSVUpload(e);
+          });
+          
+          document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') {
+              if (el.importModal.style.display === 'block') el.importModal.style.display = 'none';
+              if (el.bewertungOverlay.style.display === 'block') el.bewertungOverlay.style.display = 'none';
+              if (el.bigTimerOverlay.style.display === 'block') el.bigTimerOverlay.style.display = 'none';
+            }
+            if (e.key === ' ' && !['INPUT', 'TEXTAREA'].includes(e.target.tagName)) {
+              e.preventDefault();
+              state.timerRunning ? pauseTimer() : startTimer();
+            }
+          });
+          
+          // Modal outside click
+          [el.importModal, el.bewertungOverlay].forEach(modal => {
+            modal.addEventListener('click', e => {
+              if (e.target === e.currentTarget) modal.style.display = 'none';
+            });
+          });
+          
+          // Big Timer Overlay click
+          el.bigTimerOverlay.addEventListener('click', e => {
+            el.bigTimerOverlay.style.display = 'none';
+          });
+          
+          // Auto-save
+          ['beforeunload', 'pagehide'].forEach(event => {
+            window.addEventListener(event, saveState);
+          });
+          document.addEventListener('visibilitychange', () => {
+            if (document.hidden) saveState();
+          });
+          setInterval(saveState, 5000);
+          
+          // Final initialization
+          updateDisplay();
+          renderResults();
+          updateTimerButton();
+        });
+      </script>
+    </div>
+  </body>
+</html>
